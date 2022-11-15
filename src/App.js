@@ -1,61 +1,58 @@
-import {useState, useEffect} from "react";
+import {useState, useMemo} from "react";
 import Form from './components/Form';
 import TodoList from "./components/TodoList";
 
 import './App.css';
 
-function App() {
-    const [inputText, setInputText] = useState('');
-    const [todos, setTodos] = useState([]);
-    const [filteredTodos, setFilteredTodos] = useState([]);
-    const [status, setStatus] = useState('all');
+function useLocalStorage(key, initialValue) {
+    const [storedValue, setStoredValue] = useState(() => {
+        const item = window.localStorage.getItem(key);
+        return item ? JSON.parse(item) : initialValue;
+    });
 
-    const filterHandler = () => {
-        if(status === 'all') {
-            setFilteredTodos(todos);
-        }
-
-        if(status === 'completed') {
-            setFilteredTodos(todos.filter((todo) => (todo.completed === true)))
-        }
-        if(status === 'uncompleted') {
-            setFilteredTodos(todos.filter((todo) => (todo.completed === false)))
-        }
-    }
-
-    const getLocalTodos = () => {
-        if(localStorage.getItem('todos')) {
-            const todosLocal = JSON.parse(localStorage.getItem('todos'));
-            setTodos(todosLocal);
-            return;
-        }
-
-        localStorage.setItem('todos', JSON.stringify([]));
-    }
-
-    const saveLocalTodos = () => {
-        localStorage.setItem('todos', JSON.stringify(todos));
+    const setValue = (value) => {
+        const valueToStore = value instanceof Function ? value(storedValue) : value;
+        setStoredValue(valueToStore);
+        window.localStorage.setItem(key, JSON.stringify(valueToStore));
     };
 
-    useEffect(() => {
-        getLocalTodos();
-    }, []);
+    return [storedValue, setValue]
+}
 
-    useEffect(() => {
-        filterHandler();
-        saveLocalTodos();
-    }, [todos, status]);
+const filterTodosByStatus = (todos, filter) => {
+    if (filter === 'all') {
+        return todos;
+    }
+
+    if (filter === 'completed') {
+        return todos.filter((todo) => (todo.completed === true))
+    }
+
+    if (filter === 'uncompleted') {
+        return todos.filter((todo) => (todo.completed === false))
+    }
+}
+
+function App() {
+    const [inputText, setInputText] = useState('');
+    const [todos, setTodos] = useLocalStorage('todos', [])
+    const [status, setStatus] = useState('all');
+
+    const filteredTodos = useMemo(() => {
+        return filterTodosByStatus(todos, status);
+    }, [todos, status])
 
     return (
-    <div className="App">
-        <header className='header'>
-            <h1>Ed's Todo list</h1>
-        </header>
+        <div className="App">
+            <header className='header'>
+                <h1>Ed's Todo list</h1>
+            </header>
 
-        <Form setInputText={setInputText} inputText={inputText} todos={todos} setTodos={setTodos} setStatus={setStatus} />
-        <TodoList todos={todos} setTodos={setTodos} filteredTodos={filteredTodos}/>
-    </div>
-  );
+            <Form setInputText={setInputText} inputText={inputText} todos={todos} setTodos={setTodos}
+                  setStatus={setStatus}/>
+            <TodoList todos={todos} setTodos={setTodos} filteredTodos={filteredTodos}/>
+        </div>
+    );
 }
 
 export default App;
